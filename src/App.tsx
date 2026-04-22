@@ -184,6 +184,42 @@ export default function App() {
     }).sort((a, b) => parseISO(a.startDate).getTime() - parseISO(b.startDate).getTime());
   }, [records, currentMonth]);
 
+  const totalTravelDays = useMemo(() => {
+    const filledSlots = new Set<string>();
+    const monthStart = startOfDay(startOfMonth(currentMonth)).getTime();
+    const monthEnd = startOfDay(endOfMonth(currentMonth)).getTime();
+
+    records.forEach(record => {
+      const recStart = parseISO(record.startDate);
+      const recEnd = parseISO(record.endDate);
+      
+      eachDayOfInterval({ 
+        start: startOfDay(recStart), 
+        end: startOfDay(recEnd) 
+      }).forEach(day => {
+        const time = startOfDay(day).getTime();
+        if (time >= monthStart && time <= monthEnd) {
+          const dateStr = format(day, 'yyyy-MM-dd');
+          const isStartDay = isSameDay(day, recStart);
+          const isEndDay = isSameDay(day, recEnd);
+
+          const startS = record.startSlot;
+          const endS = record.endSlot;
+
+          let hasAM = true;
+          let hasPM = true;
+          
+          if (isStartDay && startS === 'PM') hasAM = false;
+          if (isEndDay && endS === 'AM') hasPM = false;
+          
+          if (hasAM) filledSlots.add(`${dateStr}-AM`);
+          if (hasPM) filledSlots.add(`${dateStr}-PM`);
+        }
+      });
+    });
+    return filledSlots.size / 2;
+  }, [records, currentMonth]);
+
   return (
     <div className="h-screen bg-[#F8F9FA] relative font-sans overflow-hidden">
       {/* Sidebar / Drawer Overlay */}
@@ -278,34 +314,6 @@ export default function App() {
                       </motion.div>
                     )}
                   </AnimatePresence>
-                </section>
-
-                {/* Recent Activity Section */}
-                <section className="space-y-4">
-                  <div className="flex items-center gap-2 text-slate-400">
-                    <History size={14} />
-                    <span className="text-[10px] font-bold uppercase tracking-widest">最近动态</span>
-                  </div>
-                  <div className="space-y-2">
-                    {records.length === 0 ? (
-                      <p className="text-[10px] text-slate-300 italic">暂无记录...</p>
-                    ) : (
-                      [...records].sort((a,b) => b.createdAt - a.createdAt).slice(0, 5).map(record => {
-                        const typeInfo = eventTypes.find(t => t.id === record.type);
-                        return (
-                          <div key={record.id} className="flex flex-col p-2 bg-[#F9FAFB] rounded-lg border border-slate-100">
-                            <div className="flex items-center justify-between mb-1">
-                              <span className="text-[10px] font-bold text-slate-700 truncate">{record.location}</span>
-                              <div className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: typeInfo?.color }} />
-                            </div>
-                            <span className="text-[8px] text-slate-400 font-medium">
-                              {format(parseISO(record.startDate), 'M/d')} - {format(parseISO(record.endDate), 'M/d')}
-                            </span>
-                          </div>
-                        );
-                      })
-                    )}
-                  </div>
                 </section>
               </div>
 
@@ -426,10 +434,15 @@ export default function App() {
 
         {/* Monthly Footprints Summary */}
         <section className="mt-10 overflow-hidden">
-          <div className="flex items-center gap-2 mb-4 text-slate-400">
-            <MapPin size={16} />
-            <span className="text-xs font-bold uppercase tracking-widest text-[#111]">本月足迹</span>
-            <span className="text-xs text-slate-300 font-medium">— {monthlyRecords.length} 条记录</span>
+          <div className="flex items-center justify-between mb-4">
+            <div className="flex items-center gap-2 text-slate-400">
+              <MapPin size={16} />
+              <span className="text-xs font-bold uppercase tracking-widest text-[#111]">本月足迹</span>
+              <span className="text-xs text-slate-300 font-medium">— {monthlyRecords.length} 条记录</span>
+            </div>
+            <div className="flex items-center gap-2 px-3 py-1 bg-blue-50 rounded-full">
+              <span className="text-[10px] font-bold text-blue-600 uppercase tracking-tight">本月出行 {totalTravelDays} 天</span>
+            </div>
           </div>
           
           <div className="flex gap-4 overflow-x-auto pb-4 scrollbar-hide">
