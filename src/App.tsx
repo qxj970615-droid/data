@@ -376,11 +376,12 @@ export default function App() {
                 key={day.toISOString()}
                 onClick={() => handleAddClick(day)}
                 className={cn(
-                  "day-cell-border relative p-2 md:p-3 flex flex-col transition-all cursor-pointer group min-h-0",
+                  "day-cell-border relative flex flex-col transition-all cursor-pointer group min-h-0",
                   !isCurrentMonth ? "bg-slate-50/20" : "hover:bg-slate-100/20"
                 )}
               >
-                <div className="flex items-center justify-between mb-2">
+                {/* Header with padding */}
+                <div className="flex items-center justify-between p-2 md:p-3 pb-1">
                   <span className={cn(
                     "text-[10px] md:text-sm transition-colors",
                     isToday 
@@ -394,11 +395,25 @@ export default function App() {
                   {isToday && <div className="w-1.5 h-1.5 rounded-full bg-blue-600" />}
                 </div>
 
-                <div className="flex-1 relative z-10 space-y-1 overflow-hidden">
-                  {activeRecords.map(record => {
+                {/* Travel Bars Container - Full Width */}
+                <div className="flex-1 relative z-10 space-y-0.5 overflow-visible">
+                  {activeRecords.map((record, idx) => {
                     const typeInfo = eventTypes.find(t => t.id === record.type);
                     const isStart = isSameDay(day, parseISO(record.startDate));
                     const isEnd = isSameDay(day, parseISO(record.endDate));
+
+                    // Continuous rounding logic
+                    const borderRadius = cn(
+                      isStart && record.startSlot === 'AM' ? "rounded-l-full ml-1" : "",
+                      isEnd && record.endSlot === 'PM' ? "rounded-r-full mr-1" : "",
+                      isStart && record.startSlot === 'PM' ? "rounded-l-full" : "",
+                      isEnd && record.endSlot === 'AM' ? "rounded-r-full" : ""
+                    );
+
+                    const horizontalPosition = cn(
+                      isStart && record.startSlot === 'PM' ? "left-1/2" : "left-0",
+                      isEnd && record.endSlot === 'AM' ? "right-1/2" : "right-0"
+                    );
 
                     return (
                       <div 
@@ -409,19 +424,21 @@ export default function App() {
                           setIsModalOpen(true);
                         }}
                         className={cn(
-                          "h-5 md:h-6 flex items-center px-2 md:px-3 text-[8px] md:text-[10px] font-bold text-white shadow-sm transition-all active:scale-[0.98]",
-                          isStart && record.startSlot === 'AM' ? "rounded-l-full" : "",
-                          isEnd && record.endSlot === 'PM' ? "rounded-r-full" : "",
-                          isStart && record.startSlot === 'PM' ? "rounded-l-full ml-[50%]" : "",
-                          isEnd && record.endSlot === 'AM' ? "rounded-r-full mr-[50%]" : "",
+                          "h-5 md:h-6 flex items-center px-3 text-[8px] md:text-[10px] font-bold text-white shadow-sm transition-all active:scale-[0.98] absolute",
+                          borderRadius,
+                          horizontalPosition
                         )}
                         style={{
                           backgroundColor: typeInfo?.color || '#64748B',
                           opacity: isCurrentMonth ? 1 : 0.2,
+                          top: idx * 24 + 0, // Vertical Slot
+                          width: (isStart && record.startSlot === 'PM') || (isEnd && record.endSlot === 'AM') ? '50%' : '100%',
                         }}
                       >
                         {(isStart || (format(day, 'i') === '0')) && (
-                          <span className="truncate filter drop-shadow-sm">{record.location}</span>
+                          <span className="truncate filter drop-shadow-sm pointer-events-none">
+                            {record.location}
+                          </span>
                         )}
                       </div>
                     );
