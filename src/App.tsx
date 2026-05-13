@@ -402,17 +402,12 @@ export default function App() {
                     const isStart = isSameDay(day, parseISO(record.startDate));
                     const isEnd = isSameDay(day, parseISO(record.endDate));
 
-                    // Continuous rounding logic
+                    // Continuous rounding logic - flush with edges unless it's the start/end
                     const borderRadius = cn(
-                      isStart && record.startSlot === 'AM' ? "rounded-l-full ml-1" : "",
-                      isEnd && record.endSlot === 'PM' ? "rounded-r-full mr-1" : "",
+                      isStart && record.startSlot === 'AM' ? "rounded-l-full" : "",
+                      isEnd && record.endSlot === 'PM' ? "rounded-r-full" : "",
                       isStart && record.startSlot === 'PM' ? "rounded-l-full" : "",
                       isEnd && record.endSlot === 'AM' ? "rounded-r-full" : ""
-                    );
-
-                    const horizontalPosition = cn(
-                      isStart && record.startSlot === 'PM' ? "left-1/2" : "left-0",
-                      isEnd && record.endSlot === 'AM' ? "right-1/2" : "right-0"
                     );
 
                     return (
@@ -424,19 +419,19 @@ export default function App() {
                           setIsModalOpen(true);
                         }}
                         className={cn(
-                          "h-5 md:h-6 flex items-center px-3 text-[8px] md:text-[10px] font-bold text-white shadow-sm transition-all active:scale-[0.98] absolute",
-                          borderRadius,
-                          horizontalPosition
+                          "h-5 md:h-6 flex items-center px-1.5 text-[8px] md:text-[10px] font-bold text-white transition-all active:scale-[0.98] absolute z-20",
+                          borderRadius
                         )}
                         style={{
                           backgroundColor: typeInfo?.color || '#64748B',
                           opacity: isCurrentMonth ? 1 : 0.2,
                           top: idx * 24 + 0, // Vertical Slot
-                          width: (isStart && record.startSlot === 'PM') || (isEnd && record.endSlot === 'AM') ? '50%' : '100%',
+                          left: isStart && record.startSlot === 'PM' ? '50%' : '-1px',
+                          right: isEnd && record.endSlot === 'AM' ? '50%' : '-1px',
                         }}
                       >
                         {(isStart || (format(day, 'i') === '0')) && (
-                          <span className="truncate filter drop-shadow-sm pointer-events-none">
+                          <span className="whitespace-nowrap filter drop-shadow-sm pointer-events-none z-20">
                             {record.location}
                           </span>
                         )}
