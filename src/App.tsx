@@ -160,6 +160,38 @@ export default function App() {
     setEventTypes(eventTypes.filter(t => t.id !== id));
   };
 
+  // --- Stable Slot Allocation for Visual Continuity ---
+  const recordSlots = useMemo(() => {
+    const slots: Record<string, number> = {};
+    const sorted = [...records].sort((a, b) => parseISO(a.startDate).getTime() - parseISO(b.startDate).getTime());
+    
+    sorted.forEach((record) => {
+      // Find the first available slot that doesn't conflict with already allocated slots on overlapping days
+      let slot = 0;
+      const occupiedSlots = new Set();
+      
+      // Look at already allocated records to find overlaps
+      Object.keys(slots).forEach(otherId => {
+        const other = records.find(r => r.id === otherId);
+        if (!other) return;
+        
+        const startA = parseISO(record.startDate).getTime();
+        const endA = parseISO(record.endDate).getTime();
+        const startB = parseISO(other.startDate).getTime();
+        const endB = parseISO(other.endDate).getTime();
+        
+        const overlaps = (startA <= endB && endA >= startB);
+        if (overlaps) {
+          occupiedSlots.add(slots[otherId]);
+        }
+      });
+      
+      while (occupiedSlots.has(slot)) slot++;
+      slots[record.id] = slot;
+    });
+    return slots;
+  }, [records]);
+
   // --- Calendar Logic ---
   const calendarDays = useMemo(() => {
     const start = startOfWeek(startOfMonth(currentMonth));
@@ -395,49 +427,63 @@ export default function App() {
                   {isToday && <div className="w-1.5 h-1.5 rounded-full bg-blue-600" />}
                 </div>
 
-                {/* Travel Bars Container - Full Width */}
-                <div className="flex-1 relative z-10 space-y-0.5 overflow-visible">
-                  {activeRecords.map((record, idx) => {
-                    const typeInfo = eventTypes.find(t => t.id === record.type);
-                    const isStart = isSameDay(day, parseISO(record.startDate));
-                    const isEnd = isSameDay(day, parseISO(record.endDate));
+                {/* Travel Bars Container - Center content for tall mobile screens */}
+                <div className="flex-1 relative z-10 overflow-visible flex flex-col justify-center px-0">
+                  <div className="relative h-full min-h-[40px]">
+                    {activeRecords.map((record) => {
+                      const typeInfo = eventTypes.find(t => t.id === record.type);
+                      const isStart = isSameDay(day, parseISO(record.startDate));
+                      const isEnd = isSameDay(day, parseISO(record.endDate));
+                      const slotIdx = recordSlots[record.id] || 0;
 
-                    // Continuous rounding logic - flush with edges unless it's the start/end
-                    const borderRadius = cn(
-                      isStart && record.startSlot === 'AM' ? "rounded-l-full" : "",
-                      isEnd && record.endSlot === 'PM' ? "rounded-r-full" : "",
-                      isStart && record.startSlot === 'PM' ? "rounded-l-full" : "",
-                      isEnd && record.endSlot === 'AM' ? "rounded-r-full" : ""
-                    );
+                      // Continuous rounding logic - flush with edges unless it's the start/end
+                      const borderRadius = cn(
+                        isStart && record.startSlot === 'AM' ? "rounded-l-full" : "",
+                        isEnd && record.endSlot === 'PM' ? "rounded-r-full" : "",
+                        isStart && record.startSlot === 'PM' ? "rounded-l-full" : "",
+                        isEnd && record.endSlot === 'AM' ? "rounded-r-full" : ""
+                      );
 
-                    return (
-                      <div 
-                        key={record.id}
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          setEditingRecord(record);
-                          setIsModalOpen(true);
-                        }}
-                        className={cn(
-                          "h-5 md:h-6 flex items-center px-1.5 text-[8px] md:text-[10px] font-bold text-white transition-all active:scale-[0.98] absolute z-20",
-                          borderRadius
-                        )}
-                        style={{
-                          backgroundColor: typeInfo?.color || '#64748B',
-                          opacity: isCurrentMonth ? 1 : 0.2,
-                          top: idx * 24 + 0, // Vertical Slot
-                          left: isStart && record.startSlot === 'PM' ? '50%' : '-1px',
-                          right: isEnd && record.endSlot === 'AM' ? '50%' : '-1px',
-                        }}
-                      >
-                        {(isStart || (format(day, 'i') === '0')) && (
-                          <span className="whitespace-nowrap filter drop-shadow-sm pointer-events-none z-20">
-                            {record.location}
-                          </span>
-                        )}
-                      </div>
-                    );
-                  })}
+                      return (
+                        <div 
+                          key={record.id}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setEditingRecord(record);
+                            setIsModalOpen(true);
+                          }}
+                          className={cn(
+                            "h-5 md:h-6 flex items-center justify-center px-1.5 text-[8px] md:text-[10px] font-bold text-white transition-all active:scale-[0.98] absolute z-20",
+                            borderRadius
+                          )}
+                          style={{
+                            backgroundColor: typeInfo?.color || '#64748B',
+                            opacity: isCurrentMonth ? 1 : 0.2,
+                            top: slotIdx * 24, // Use stable slot
+                            left: isStart ? (record.startSlot === 'PM' ? '50%' : '4px') : '-1.5px',
+                            right: isEnd ? (record.endSlot === 'AM' ? '50%' : '4px') : '-1.5px',
+                          }}
+                        >
+                          {(() => {
+                            const start = parseISO(record.startDate);
+                            const end = parseISO(record.endDate);
+                            const days = eachDayOfInterval({ start, end });
+                            const midIndex = Math.floor(days.length / 2);
+                            const midDate = days[midIndex];
+                            
+                            if (isSameDay(day, midDate)) {
+                              return (
+                                <span className="whitespace-nowrap filter drop-shadow-sm pointer-events-none z-20 overflow-visible">
+                                  {record.location}
+                                </span>
+                              );
+                            }
+                            return null;
+                          })()}
+                        </div>
+                      );
+                    })}
+                  </div>
                 </div>
               </div>
             );
